@@ -1,0 +1,55 @@
+- name: p0
+  color: "B60205"
+  description: Prioridad máxima — bloqueante
+
+- name: p1
+  color: "E4E669"
+  description: Alta prioridad
+
+- name: p2
+  color: "0075CA"
+  description: Prioridad normal
+
+- name: infrastructure
+  color: "006B75"
+  description: Infraestructura, Docker, DevOps
+
+- name: backend
+  color: "5319E7"
+  description: API, NestJS, base de datos
+
+- name: frontend
+  color: "0E8A16"
+  description: Dashboard, landing, UI
+
+- name: radio-engine
+  color: "D93F0B"
+  description: Motor de radio, AutoDJ, playlists
+
+- name: video-engine
+  color: "1D76DB"
+  description: Motor de video, HLS, RTMP
+
+- name: billing
+  color: "E99695"
+  description: Facturación, pagos, planes
+
+- name: bug
+  color: "D73A4A"
+  description: Algo no funciona
+
+- name: enhancement
+  color: "A2EEEF"
+  description: Nueva funcionalidad o mejora
+
+- name: documentation
+  color: "0075CA"
+  description: Mejoras a la documentación
+
+- name: multi-tenant
+  color: "BFD4F2"
+  description: Lógica multi-tenant
+
+- name: auth
+  color: "C5DEF5"
+  description: Autenticación y autorización
