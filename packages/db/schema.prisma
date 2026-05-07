@@ -1,0 +1,195 @@
+// KusMedios Platform — Prisma Schema
+// PostgreSQL via Neon
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  domain           String?
+  logoUrl          String?
+  plan             String   @default("starter")
+  status           String   @default("active")
+  storageUsedBytes BigInt   @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  users          User[]
+  radioChannels  RadioChannel[]
+  videoChannels  VideoChannel[]
+  playlists      Playlist[]
+  tracks         Track[]
+  subscriptions  Subscription[]
+
+  @@map("tenants")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  tenantId     String?
+  email        String    @unique
+  passwordHash String
+  name         String?
+  role         String    @default("viewer")
+  avatarUrl    String?
+  isActive     Boolean   @default(true)
+  lastLogin    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("users")
+}
+
+model RadioChannel {
+  id               String   @id @default(cuid())
+  tenantId         String
+  name             String
+  slug             String
+  description      String?
+  logoUrl          String?
+  bitrate          Int      @default(128)
+  format           String   @default("mp3")
+  mountPoint       String   @unique
+  streamUrl        String?
+  status           String   @default("offline")
+  isAutoDJ         Boolean  @default(true)
+  autoDJVolume     Int      @default(100)
+  maxListeners     Int      @default(500)
+  currentListeners Int      @default(0)
+  nowPlaying       Json?
+  engineChannelId  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  playlists Playlist[]
+  schedules Schedule[]
+
+  @@unique([tenantId, slug])
+  @@map("radio_channels")
+}
+
+model VideoChannel {
+  id             String   @id @default(cuid())
+  tenantId       String
+  name           String
+  slug           String
+  description    String?
+  thumbnailUrl   String?
+  streamKey      String   @unique @default(cuid())
+  rtmpUrl        String?
+  hlsUrl         String?
+  status         String   @default("offline")
+  resolution     String   @default("1080p")
+  bitrateVideo   Int      @default(4000)
+  bitrateAudio   Int      @default(128)
+  currentViewers Int      @default(0)
+  dvrEnabled     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, slug])
+  @@map("video_channels")
+}
+
+model Playlist {
+  id        String   @id @default(cuid())
+  tenantId  String
+  channelId String?
+  name      String
+  type      String   @default("default")
+  isActive  Boolean  @default(true)
+  weight    Int      @default(1)
+  createdAt DateTime @default(now())
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel RadioChannel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  tracks  Track[]
+  schedules Schedule[]
+
+  @@map("playlists")
+}
+
+model Track {
+  id         String   @id @default(cuid())
+  tenantId   String
+  playlistId String?
+  title      String
+  artist     String?
+  album      String?
+  duration   Int?
+  fileUrl    String
+  fileSize   BigInt?
+  waveform   Json?
+  createdAt  DateTime @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  playlist Playlist? @relation(fields: [playlistId], references: [id], onDelete: SetNull)
+
+  @@map("tracks")
+}
+
+model Schedule {
+  id         String   @id @default(cuid())
+  channelId  String
+  name       String
+  dayOfWeek  Int[]
+  startTime  String
+  endTime    String
+  playlistId String?
+  isLive     Boolean  @default(false)
+  djName     String?
+  createdAt  DateTime @default(now())
+
+  channel  RadioChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  playlist Playlist?    @relation(fields: [playlistId], references: [id])
+
+  @@map("schedules")
+}
+
+model Plan {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  priceMXN       Decimal  @db.Decimal(10, 2)
+  radioChannels  Int      @default(1)
+  videoChannels  Int      @default(0)
+  maxBitrate     Int      @default(128)
+  storageGb      Int      @default(5)
+  maxListeners   Int      @default(500)
+  whiteLabel     Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  planId             String
+  status             String    @default("active")
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  stripeSubId        String?
+  createdAt          DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  @@map("subscriptions")
+}
