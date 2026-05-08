@@ -1,66 +1,88 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable, UnauthorizedException,
+  ConflictException, NotFoundException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { PrismaService } from '../prisma/prisma.service';
-import { LoginDto } from './dto/login.dto';
+import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private prisma: PrismaService,
-    private jwt: JwtService,
+    private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
   ) {}
 
   async register(dto: RegisterDto) {
-    const exists = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (exists) throw new ConflictException('El correo ya está registrado');
+    const exists = await this.usersService.findByEmail(dto.email);
+    if (exists) throw new ConflictException('Email already registered');
 
     const hash = await bcrypt.hash(dto.password, 12);
-    const user = await this.prisma.user.create({
-      data: { email: dto.email, passwordHash: hash, name: dto.name, role: 'viewer' },
+    const user = await this.usersService.create({
+      ...dto,
+      password: hash,
     });
 
-    return this.signTokens(user);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    await this.usersService.updateRefreshToken(user.id, tokens.refreshToken);
+    return { user: this.sanitize(user), ...tokens };
   }
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (!user) throw new UnauthorizedException('Credenciales inválidas');
+    const user = await this.usersService.findByEmail(dto.email);
+    if (!user) throw new UnauthorizedException('Invalid credentials');
 
-    const valid = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!valid) throw new UnauthorizedException('Credenciales inválidas');
+    const valid = await bcrypt.compare(dto.password, user.password);
+    if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date() },
-    });
-
-    return this.signTokens(user);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    await this.usersService.updateRefreshToken(user.id, tokens.refreshToken);
+    return { user: this.sanitize(user), ...tokens };
   }
 
-  async refresh(token: string) {
-    try {
-      const payload = this.jwt.verify(token, {
-        secret: process.env.JWT_REFRESH_SECRET,
-      });
-      const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
-      if (!user || !user.isActive) throw new UnauthorizedException();
-      return this.signTokens(user);
-    } catch {
-      throw new UnauthorizedException('Token inválido o expirado');
-    }
+  async logout(userId: string) {
+    await this.usersService.updateRefreshToken(userId, null);
+    return { message: 'Logged out successfully' };
   }
 
-  private signTokens(user: any) {
-    const payload = { sub: user.id, email: user.email, role: user.role, tenantId: user.tenantId };
-    return {
-      accessToken: this.jwt.sign(payload),
-      refreshToken: this.jwt.sign(payload, {
-        secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+  async refreshTokens(userId: string, refreshToken: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user || !user.refreshToken)
+      throw new UnauthorizedException('Access denied');
+
+    const match = await bcrypt.compare(refreshToken, user.refreshToken);
+    if (!match) throw new UnauthorizedException('Access denied');
+
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    await this.usersService.updateRefreshToken(user.id, tokens.refreshToken);
+    return tokens;
+  }
+
+  async getMe(userId: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+    return this.sanitize(user);
+  }
+
+  private async generateTokens(userId: string, email: string, role: string) {
+    const payload = { sub: userId, email, role };
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload, {
+        secret: process.env.JWT_SECRET || 'kusmedios-demo-secret-change-in-prod',
+        expiresIn: '15m',
       }),
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
-    };
+      this.jwtService.signAsync(payload, {
+        secret: process.env.JWT_REFRESH_SECRET || 'kusmedios-refresh-secret-change-in-prod',
+        expiresIn: '7d',
+      }),
+    ]);
+    return { accessToken, refreshToken };
+  }
+
+  private sanitize(user: any) {
+    const { password, refreshToken, ...safe } = user;
+    return safe;
   }
 }

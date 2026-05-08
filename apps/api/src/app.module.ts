@@ -1,29 +1,33 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { ChannelsModule } from './channels/channels.module';
 import { TenantsModule } from './tenants/tenants.module';
+import { PlansModule } from './plans/plans.module';
 import { RadioModule } from './radio/radio.module';
 import { VideoModule } from './video/video.module';
-import { BillingModule } from './billing/billing.module';
+import { HealthModule } from './health/health.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
-import { StatsModule } from './stats/stats.module';
-import { WebSocketGateway } from './gateway/websocket.gateway';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     AuthModule,
     UsersModule,
+    ChannelsModule,
     TenantsModule,
+    PlansModule,
     RadioModule,
     VideoModule,
-    BillingModule,
+    HealthModule,
     WebhooksModule,
-    StatsModule,
   ],
-  providers: [WebSocketGateway],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+  ],
 })
 export class AppModule {}
