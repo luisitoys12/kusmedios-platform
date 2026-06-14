@@ -9,10 +9,12 @@ import { RadioModule } from './radio/radio.module';
 import { VideoModule } from './video/video.module';
 import { HealthModule } from './health/health.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { QueueModule } from './queue/queue.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
 @Module({
   imports: [
+    QueueModule,
     AuthModule,
     UsersModule,
     ChannelsModule,

@@ -1,0 +1,28 @@
+{
+  "name": "@kusmedios/mcp",
+  "version": "0.1.0-beta",
+  "description": "KusMedios MCP (Model Context Protocol) server — beta",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "kusmedios-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.11.0",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.12.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

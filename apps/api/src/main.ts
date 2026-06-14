@@ -4,6 +4,30 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import * as compression from 'compression';
 import helmet from 'helmet';
+import { z } from 'zod';
+
+// ─── Env validation (Zod) ────────────────────────────────────────────────────
+const EnvSchema = z.object({
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  DATABASE_URL: z.string().url(),
+  REDIS_URL: z.string().url(),
+  JWT_SECRET: z.string().min(16),
+  JWT_REFRESH_SECRET: z.string().min(16),
+  JWT_EXPIRES_IN: z.string().default('15m'),
+  JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+  PORT: z.string().regex(/^\d+$/).optional().default('4000'),
+  WS_PORT: z.string().regex(/^\d+$/).optional().default('4001'),
+  APP_URL: z.string().url().optional(),
+  DASHBOARD_URL: z.string().url().optional(),
+});
+
+const _env = EnvSchema.safeParse(process.env);
+if (!_env.success) {
+  console.error('❌  Invalid environment variables:');
+  console.error(_env.error.flatten().fieldErrors);
+  process.exit(1);
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -43,7 +67,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.PORT || 4000;
+  const port = parseInt(process.env.PORT ?? '4000', 10);
   await app.listen(port);
   console.log(`🚀 KusMedios API running on http://localhost:${port}`);
   console.log(`📚 Swagger docs: http://localhost:${port}/api/docs`);
